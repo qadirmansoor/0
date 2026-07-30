@@ -1,0 +1,8 @@
+{
+  "name": "erp-docker-init",
+  "private": true,
+  "dependencies": {
+    "pg": "^8.13.1",
+    "bcryptjs": "^3.0.2"
+  }
+}

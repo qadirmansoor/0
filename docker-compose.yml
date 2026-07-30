@@ -1,0 +1,15 @@
+services:
+  erp:
+    build: .
+    image: erp-zimaos:latest
+    container_name: erp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - erp-data:/data
+    environment:
+      - PORT=3000
+
+volumes:
+  erp-data:
