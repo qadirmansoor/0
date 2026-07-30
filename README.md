@@ -55,21 +55,25 @@ The two modules are integrated with real double-entry bookkeeping: fulfilling a 
 
 ### Install on ZimaOS
 
-ZimaOS's "Install a customized app" screen takes a `docker-compose.yml`, but it needs an image it can pull — it won't build from a Dockerfile. Since this image isn't published to a registry, build it once over SSH on the ZimaOS box itself, then let compose (or the app UI) use the resulting local image:
+A [GitHub Actions workflow](.github/workflows/docker-publish.yml) builds this image on every push and publishes it to `ghcr.io/qadirmansoor/erp-zimaos:latest` — so ZimaOS can just **pull** it instead of building locally (its "Install a customized app" screen takes a `docker-compose.yml`, but needs an image it can pull; it won't build from a Dockerfile itself). Over SSH on the ZimaOS box:
 
 ```bash
 git clone <this repo> erp && cd erp
-docker compose build   # builds the image tagged erp-zimaos:latest, per docker-compose.yml
+docker compose pull   # pulls ghcr.io/qadirmansoor/erp-zimaos:latest
 docker compose up -d
 ```
 
-Then open `http://<zimaos-host>:3000`. Change the host port in `docker-compose.yml` (`"3000:3000"`) if 3000 is already taken.
+If the GHCR package is private (default for a private repo), `docker login ghcr.io` first with a token that has `read:packages` scope — or make the package public from its GitHub settings page.
+
+If you'd rather build locally instead of pulling (e.g. to test an uncommitted change), `docker compose build && docker compose up -d` uses the `build: .` fallback in `docker-compose.yml`.
+
+Either way, then open `http://<zimaos-host>:3000`. Change the host port in `docker-compose.yml` (`"3000:3000"`) if 3000 is already taken.
 
 ### What's verified
 
 The container's runtime logic reuses the same schema/seed code already smoke-tested end-to-end for the [Windows build](electron-app/README.md) (`docker/init-db.js` + `docker/seed.js` mirror `electron-app/main.js` + `electron-app/seed.js`, just talking to an apt-installed Postgres over `127.0.0.1` instead of an embedded one).
 
-**Not verified: an actual `docker build` of this image.** This container's network policy blocks Docker Hub pulls entirely (confirmed via the proxy status endpoint — a policy-level 403, not a transient failure), so I couldn't pull even the base `node:20-bookworm-slim` image to test here. The Dockerfile/entrypoint are written carefully against well-documented Debian/Postgres behavior (disabling the package's auto-created cluster, using `su postgres -s /bin/bash -c` since the `postgres` system user's default shell isn't guaranteed to be interactive, standalone Next.js output for the app layer), but you should build it yourself as the first real test. If it fails, likely spots:
+**Not built or run by me directly.** This sandbox's network policy blocks Docker Hub pulls entirely (confirmed via the proxy status endpoint — a policy-level 403, not a transient failure), so I couldn't pull even the base `node:20-bookworm-slim` image here. That's the whole reason the GitHub Actions workflow above exists: its runner has normal internet access, so it's the actual first build of this image. Check the [Actions tab](../../actions/workflows/docker-publish.yml) for whether it succeeded — if it's green, the image itself is confirmed to build; only the *runtime* behavior on an actual ZimaOS box (Postgres init, volume permissions, first-run seed) still needs a real test. If the workflow is red, likely spots:
 
 1. **`postgresql` apt package version drift** — bookworm's version may change over time; the Dockerfile doesn't pin one.
 2. **Permissions on the `/data` volume** — the entrypoint chowns it to `postgres:postgres` on every start; if ZimaOS mounts the volume with unusual ownership/`noexec`, that could need adjusting.

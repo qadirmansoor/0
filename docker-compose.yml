@@ -1,7 +1,7 @@
 services:
   erp:
+    image: ghcr.io/qadirmansoor/erp-zimaos:latest
     build: .
-    image: erp-zimaos:latest
     container_name: erp
     restart: unless-stopped
     ports:
