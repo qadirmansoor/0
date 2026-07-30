@@ -12,3 +12,4 @@ uvicorn[standard]>=0.29
 #   RPi.GPIO>=0.7.1         # Alternative Raspberry Pi GPIO backend
 
 pytest>=8.0
+httpx>=0.27   # required by fastapi.testclient in the test suite

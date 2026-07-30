@@ -1,7 +1,7 @@
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..cameras.base import CameraBase
 from ..printer.hp_tij import HPTIJPrinter, PrinterError
@@ -28,6 +28,7 @@ class InspectionPipeline:
         save_reject_images: bool = True,
         reject_image_dir: str = "./rejects",
         target_fps: float = 30,
+        line_name: str = "Line-01",
     ):
         self._camera = camera
         self._inspector = inspector
@@ -38,6 +39,7 @@ class InspectionPipeline:
         self._save_reject_images = save_reject_images
         self._reject_image_dir = Path(reject_image_dir)
         self._frame_interval_s = 1.0 / target_fps if target_fps > 0 else 0
+        self.line_name = line_name
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -46,8 +48,17 @@ class InspectionPipeline:
         self.total_passed = 0
         self.total_rejected = 0
 
+        self._last_result_passed: Optional[bool] = None
+        self._last_defects: List[str] = []
+        self._latest_jpeg: Optional[bytes] = None
+        self._frame_lock = threading.Lock()
+
         if self._save_reject_images:
             self._reject_image_dir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def reject_image_dir(self) -> Path:
+        return self._reject_image_dir
 
     def start(self) -> None:
         if self._running:
@@ -78,13 +89,37 @@ class InspectionPipeline:
 
     def stats(self) -> Dict[str, Any]:
         return {
+            "line_name": self.line_name,
+            "running": self._running,
             "total_inspected": self.total_inspected,
             "total_passed": self.total_passed,
             "total_rejected": self.total_rejected,
             "pending_reject_queue": self._reject_queue.pending_count(),
             "camera_connected": self._camera.is_connected,
             "printer_connected": self._printer.is_connected if self._printer else None,
+            "last_result_passed": self._last_result_passed,
+            "last_defects": self._last_defects,
         }
+
+    def get_latest_jpeg(self) -> Optional[bytes]:
+        """Most recent inspected frame (with a pass/fail overlay), JPEG-encoded."""
+        with self._frame_lock:
+            return self._latest_jpeg
+
+    def list_recent_rejects(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Most recently archived reject images, newest first."""
+        if not self._reject_image_dir.exists():
+            return []
+        files = sorted(self._reject_image_dir.glob("*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True)
+        entries = []
+        for path in files[:limit]:
+            timestamp_ms, _, product_id = path.stem.partition("_")
+            entries.append({
+                "filename": path.name,
+                "product_id": product_id or None,
+                "timestamp_ms": int(timestamp_ms) if timestamp_ms.isdigit() else None,
+            })
+        return entries
 
     def _run(self) -> None:
         while self._running:
@@ -108,6 +143,8 @@ class InspectionPipeline:
     def _process_frame(self, frame) -> None:
         result = self._inspector.inspect(frame)
         self.total_inspected += 1
+        self._last_result_passed = result.passed
+        self._last_defects = result.defects
 
         if result.passed:
             self.total_passed += 1
@@ -122,6 +159,8 @@ class InspectionPipeline:
             if self._save_reject_images:
                 self._save_reject_image(frame, result.product_id)
 
+        self._update_latest_jpeg(frame, result)
+
         logger.debug(
             "Inspected %s: passed=%s confidence=%.2f defects=%s",
             result.product_id,
@@ -129,6 +168,21 @@ class InspectionPipeline:
             result.confidence,
             result.defects,
         )
+
+    def _update_latest_jpeg(self, frame, result) -> None:
+        import cv2
+
+        annotated = frame.copy()
+        label = "PASS" if result.passed else "FAIL"
+        color = (0, 200, 0) if result.passed else (0, 0, 220)
+        cv2.rectangle(annotated, (0, 0), (annotated.shape[1] - 1, annotated.shape[0] - 1), color, 6)
+        cv2.putText(annotated, f"{label} {result.product_id}", (12, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
+        ok, buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        if not ok:
+            return
+        with self._frame_lock:
+            self._latest_jpeg = buffer.tobytes()
 
     def _print_good_unit(self, product_id: str) -> None:
         if self._printer is None:

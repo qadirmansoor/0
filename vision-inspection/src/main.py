@@ -37,6 +37,7 @@ def build_pipeline(config: dict):
         save_reject_images=line_cfg.get("save_reject_images", True),
         reject_image_dir=line_cfg.get("reject_image_dir", "./rejects"),
         target_fps=line_cfg.get("camera_fps", 30),
+        line_name=line_cfg.get("name", "Line-01"),
     )
     return pipeline, controller
 

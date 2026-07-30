@@ -32,7 +32,8 @@ src/
   rejection/       arduino_controller.py, raspberry_pi_controller.py,
                     plc_controller.py, delay_queue.py, factory.py
   inspection/      defect_detector.py, pipeline.py, models.py
-  api/             server.py                (FastAPI monitoring/control)
+  api/             server.py                (FastAPI: JSON API, MJPEG stream, dashboard)
+                    static/                  (self-contained HTML/CSS/JS dashboard)
   main.py          wires everything together from config/config.yaml
 config/config.yaml  all tunables (camera, printer, rejection, inspection, api)
 tests/              unit tests, hardware I/O mocked
@@ -108,14 +109,33 @@ transparent, tunable classic-CV baseline:
 Swap in an ML model behind the same `InspectorBase.inspect()` interface
 for more nuanced defect classes without touching the pipeline.
 
-## Monitoring/control API
+## Web dashboard
 
-If `api.enabled: true`, a FastAPI server runs alongside the pipeline:
+If `api.enabled: true`, a FastAPI server runs alongside the pipeline and
+serves a self-contained operator dashboard — no separate build step or
+Node install, just start `src/main.py` and open a browser to
+`http://<host>:8000` (default port, see `api.port`):
+
+- live MJPEG camera feed with a PASS/FAIL overlay per inspected unit
+- running/stopped indicator, camera/printer connection badges
+- inspected/passed/rejected counters, pass rate, reject-queue depth
+- Start / Stop / Test Reject controls
+- a gallery of the most recently rejected unit images, for quick visual triage
+
+It's plain HTML/CSS/JS (`src/api/static/`) polling the JSON API below, so
+it works from any browser on the plant network with no client install —
+useful for a line operator's screen or a supervisor checking a line
+remotely.
+
+### API endpoints
 
 - `GET /health` — liveness
-- `GET /status` — inspected/passed/rejected counters, queue depth, camera/printer connection state
+- `GET /status` — running state, inspected/passed/rejected counters, queue depth, camera/printer connection state, last inspection result
 - `POST /start` / `POST /stop` — start/stop the pipeline
 - `POST /reject/test` — manually fire the reject actuator (commissioning)
+- `GET /stream` — MJPEG live camera feed (used by the dashboard's `<img>`)
+- `GET /rejects/recent?limit=20` — recent reject image metadata + URLs
+- `GET /rejects/images/<filename>` — serves an archived reject image
 
 ## Running
 
@@ -126,6 +146,7 @@ pip install -r requirements.txt
 # for Raspberry Pi GPIO:   pip install gpiozero   (or RPi.GPIO)
 
 python -m src.main --config config/config.yaml
+# then open http://localhost:8000 in a browser
 ```
 
 ## Traceability
