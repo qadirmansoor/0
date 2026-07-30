@@ -1,0 +1,21 @@
+services:
+  vision-inspection:
+    build: .
+    image: pharma-vision-inspection:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config/config.yaml:/app/config/config.yaml:ro
+      - ./rejects:/app/rejects
+    # IP cameras, PLC (Modbus TCP) and HP TIJ controllers are reached over
+    # the network, so the default bridge network is enough for them. Local
+    # hardware needs explicit passthrough -- uncomment what your line uses:
+    #
+    # devices:
+    #   - "/dev/video0:/dev/video0"     # builtin/USB3 (opencv driver) camera
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"    # Arduino reject controller (adjust to your port)
+    #   - "/dev/gpiomem:/dev/gpiomem"    # Raspberry Pi GPIO reject controller
+    #
+    # A USB3 Vision/GenICam camera generally needs full USB access:
+    # privileged: true

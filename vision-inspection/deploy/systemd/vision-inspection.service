@@ -1,0 +1,20 @@
+[Unit]
+Description=Pharma Vision Inspection System
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust to where the repo is checked out and which user should own the
+# camera/serial/GPIO device permissions on this host (often a dedicated
+# service account already in the `video`/`dialout`/`gpio` groups).
+User=vision
+WorkingDirectory=/opt/vision-inspection
+ExecStart=/opt/vision-inspection/.venv/bin/python -m src.main --config config/config.yaml
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

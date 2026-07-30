@@ -149,6 +149,10 @@ python -m src.main --config config/config.yaml
 # then open http://localhost:8000 in a browser
 ```
 
+To run it on a server/edge box on the line's network so others can reach
+the dashboard too (rather than just `localhost`), see [DEPLOY.md](DEPLOY.md)
+for Docker and systemd setups.
+
 ## Traceability
 
 Every rejected frame is archived to `line.reject_image_dir` (default
@@ -160,6 +164,7 @@ record-keeping.
 
 ```bash
 cd vision-inspection
+pip install -r requirements-dev.txt
 python -m pytest
 ```
 

@@ -1,5 +1,5 @@
 numpy>=1.24
-opencv-python>=4.9
+opencv-python-headless>=4.9   # no cv2.imshow/GUI usage in this codebase; headless avoids needing libGL/X11
 PyYAML>=6.0
 pyserial>=3.5
 pymodbus>=3.6
@@ -10,6 +10,6 @@ uvicorn[standard]>=0.29
 #   harvesters>=1.4        # GenICam / USB3 Vision industrial cameras
 #   gpiozero>=2.0           # Raspberry Pi GPIO control
 #   RPi.GPIO>=0.7.1         # Alternative Raspberry Pi GPIO backend
-
-pytest>=8.0
-httpx>=0.27   # required by fastapi.testclient in the test suite
+#
+# Test-only dependencies live in requirements-dev.txt, not here -- the
+# deployed/container image only needs runtime deps.
