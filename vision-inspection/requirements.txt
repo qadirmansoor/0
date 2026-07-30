@@ -1,0 +1,14 @@
+numpy>=1.24
+opencv-python>=4.9
+PyYAML>=6.0
+pyserial>=3.5
+pymodbus>=3.6
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Optional, hardware-specific extras (install only if that hardware is used):
+#   harvesters>=1.4        # GenICam / USB3 Vision industrial cameras
+#   gpiozero>=2.0           # Raspberry Pi GPIO control
+#   RPi.GPIO>=0.7.1         # Alternative Raspberry Pi GPIO backend
+
+pytest>=8.0

@@ -1,0 +1,96 @@
+# Pharma Vision Inspection System - main configuration
+# Copy to config/local.yaml and adjust per-line, or override via env vars (see src/config.py)
+
+line:
+  name: "Line-01"
+  camera_fps: 30
+  save_reject_images: true
+  reject_image_dir: "./rejects"
+  stats_log_interval_s: 60
+
+camera:
+  # type: builtin | usb3 | ip
+  type: builtin
+
+  builtin:
+    index: 0
+    width: 1280
+    height: 720
+
+  usb3:
+    # driver: opencv (generic UVC/USB3 webcam-class device) | genicam (USB3 Vision / GenICam industrial camera via Harvesters)
+    driver: opencv
+    device_index: 0
+    width: 1920
+    height: 1080
+    fps: 60
+    # GenICam-only settings (driver: genicam)
+    cti_file: "/opt/genicam/producers/producer.cti"
+    genicam_device_index: 0
+    exposure_us: 2000
+    gain_db: 0
+
+  ip:
+    # RTSP/HTTP/ONVIF stream URL, e.g. rtsp://user:pass@192.168.1.50:554/stream1
+    url: "rtsp://user:password@192.168.1.50:554/stream1"
+    reconnect_interval_s: 5
+    connect_timeout_s: 10
+    max_reconnect_attempts: 0   # 0 = retry forever
+
+printer:
+  type: hp_tij
+  hp_tij:
+    ip: "192.168.1.100"
+    port: 9100
+    connect_timeout_s: 5
+    send_timeout_s: 2
+    retries: 3
+    encoding: "ascii"
+    # Field order/template used to build the print job payload sent to the controller.
+    # Adjust to match the specific HP TIJ controller's command protocol.
+    field_template: "^JOB^BATCH={batch}^MFG={mfg_date}^EXP={exp_date}^MRP={mrp}^END\n"
+    status_poll_interval_s: 5
+
+rejection:
+  # type: arduino | raspberrypi | plc
+  type: plc
+
+  delay:
+    # mode: fixed_ms | conveyor_speed
+    mode: conveyor_speed
+    fixed_ms: 500
+    conveyor_speed_mm_s: 300
+    camera_to_reject_mm: 150
+    pulse_ms: 200
+
+  arduino:
+    port: "/dev/ttyUSB0"
+    baudrate: 115200
+    timeout_s: 1
+    ack_timeout_s: 0.5
+
+  raspberrypi:
+    reject_gpio_pin: 17
+    active_high: true
+    backend: gpiozero   # gpiozero | rpigpio
+
+  plc:
+    protocol: modbus_tcp   # modbus_tcp | modbus_rtu
+    ip: "192.168.1.150"
+    port: 502
+    unit_id: 1
+    reject_coil_address: 0
+    delay_register_address: 100   # optional: pushes computed delay to PLC-side timer
+    timeout_s: 2
+
+inspection:
+  mode: basic_cv
+  min_confidence: 0.80
+  reference_image: ""   # optional path to a golden/reference image for template matching
+  blur_threshold: 100.0
+  min_defect_area_px: 40
+
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8000
