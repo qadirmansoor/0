@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Auth ----------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("ADMIN")
+  createdAt    DateTime @default(now())
+}
+
+// ---------- Accounts ----------
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+model Account {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  name      String
+  type      AccountType
+  isActive  Boolean       @default(true)
+  parentId  String?
+  parent    Account?      @relation("AccountToParent", fields: [parentId], references: [id])
+  children  Account[]     @relation("AccountToParent")
+  lines     JournalLine[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model JournalEntry {
+  id        String        @id @default(cuid())
+  date      DateTime
+  memo      String?
+  reference String?
+  source    String        @default("MANUAL") // MANUAL, INVOICE, BILL, PAYMENT
+  sourceId  String?
+  lines     JournalLine[]
+  createdAt DateTime      @default(now())
+}
+
+model JournalLine {
+  id             String       @id @default(cuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+  debit          Decimal      @default(0) @db.Decimal(14, 2)
+  credit         Decimal      @default(0) @db.Decimal(14, 2)
+  memo           String?
+}
+
+enum PartyType {
+  CUSTOMER
+  VENDOR
+  BOTH
+}
+
+model Party {
+  id             String          @id @default(cuid())
+  name           String
+  type           PartyType
+  email          String?
+  phone          String?
+  address        String?
+  isActive       Boolean         @default(true)
+  invoices       Invoice[]
+  bills          Bill[]
+  payments       Payment[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+  createdAt      DateTime        @default(now())
+}
+
+enum DocStatus {
+  DRAFT
+  OPEN
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  number       String        @unique
+  customerId   String
+  customer     Party         @relation(fields: [customerId], references: [id])
+  date         DateTime
+  dueDate      DateTime?
+  status       DocStatus     @default(DRAFT)
+  lines        InvoiceLine[]
+  payments     Payment[]
+  salesOrderId String?
+  salesOrder   SalesOrder?   @relation(fields: [salesOrderId], references: [id])
+  subtotal     Decimal       @default(0) @db.Decimal(14, 2)
+  total        Decimal       @default(0) @db.Decimal(14, 2)
+  amountPaid   Decimal       @default(0) @db.Decimal(14, 2)
+  createdAt    DateTime      @default(now())
+}
+
+model InvoiceLine {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        Item?   @relation(fields: [itemId], references: [id])
+  description String
+  quantity    Decimal @default(1) @db.Decimal(14, 2)
+  unitPrice   Decimal @default(0) @db.Decimal(14, 2)
+  amount      Decimal @default(0) @db.Decimal(14, 2)
+}
+
+model Bill {
+  id              String         @id @default(cuid())
+  number          String         @unique
+  vendorId        String
+  vendor          Party          @relation(fields: [vendorId], references: [id])
+  date            DateTime
+  dueDate         DateTime?
+  status          DocStatus      @default(DRAFT)
+  lines           BillLine[]
+  payments        Payment[]
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  subtotal        Decimal        @default(0) @db.Decimal(14, 2)
+  total           Decimal        @default(0) @db.Decimal(14, 2)
+  amountPaid      Decimal        @default(0) @db.Decimal(14, 2)
+  createdAt       DateTime       @default(now())
+}
+
+model BillLine {
+  id          String  @id @default(cuid())
+  billId      String
+  bill        Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        Item?   @relation(fields: [itemId], references: [id])
+  description String
+  quantity    Decimal @default(1) @db.Decimal(14, 2)
+  unitPrice   Decimal @default(0) @db.Decimal(14, 2)
+  amount      Decimal @default(0) @db.Decimal(14, 2)
+}
+
+enum PaymentDirection {
+  RECEIVED // from customer
+  PAID // to vendor
+}
+
+model Payment {
+  id        String           @id @default(cuid())
+  partyId   String
+  party     Party            @relation(fields: [partyId], references: [id])
+  invoiceId String?
+  invoice   Invoice?         @relation(fields: [invoiceId], references: [id])
+  billId    String?
+  bill      Bill?            @relation(fields: [billId], references: [id])
+  direction PaymentDirection
+  amount    Decimal          @db.Decimal(14, 2)
+  method    String           @default("CASH")
+  date      DateTime
+  createdAt DateTime         @default(now())
+}
+
+// ---------- Inventory ----------
+
+model Item {
+  id           String              @id @default(cuid())
+  sku          String              @unique
+  name         String
+  description  String?
+  unit         String              @default("EA")
+  costPrice    Decimal             @default(0) @db.Decimal(14, 2)
+  salePrice    Decimal             @default(0) @db.Decimal(14, 2)
+  reorderLevel Decimal             @default(0) @db.Decimal(14, 2)
+  isActive     Boolean             @default(true)
+  stockLevels  StockLevel[]
+  movements    StockMovement[]
+  invoiceLines InvoiceLine[]
+  billLines    BillLine[]
+  poLines      PurchaseOrderLine[]
+  soLines      SalesOrderLine[]
+  createdAt    DateTime            @default(now())
+}
+
+model Warehouse {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  location    String?
+  isActive    Boolean         @default(true)
+  stockLevels StockLevel[]
+  movements   StockMovement[]
+  createdAt   DateTime        @default(now())
+}
+
+model StockLevel {
+  id          String    @id @default(cuid())
+  itemId      String
+  item        Item      @relation(fields: [itemId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  quantity    Decimal   @default(0) @db.Decimal(14, 2)
+
+  @@unique([itemId, warehouseId])
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+model StockMovement {
+  id          String            @id @default(cuid())
+  itemId      String
+  item        Item              @relation(fields: [itemId], references: [id])
+  warehouseId String
+  warehouse   Warehouse         @relation(fields: [warehouseId], references: [id])
+  type        StockMovementType
+  quantity    Decimal           @db.Decimal(14, 2)
+  reference   String?
+  source      String            @default("MANUAL") // MANUAL, PO, SO
+  sourceId    String?
+  date        DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+}
+
+enum OrderStatus {
+  DRAFT
+  OPEN
+  PARTIAL
+  CLOSED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id        String              @id @default(cuid())
+  number    String              @unique
+  vendorId  String
+  vendor    Party               @relation(fields: [vendorId], references: [id])
+  date      DateTime
+  status    OrderStatus         @default(DRAFT)
+  lines     PurchaseOrderLine[]
+  bills     Bill[]
+  createdAt DateTime            @default(now())
+}
+
+model PurchaseOrderLine {
+  id               String        @id @default(cuid())
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  itemId           String
+  item             Item          @relation(fields: [itemId], references: [id])
+  quantity         Decimal       @db.Decimal(14, 2)
+  quantityReceived Decimal       @default(0) @db.Decimal(14, 2)
+  unitPrice        Decimal       @db.Decimal(14, 2)
+}
+
+model SalesOrder {
+  id         String           @id @default(cuid())
+  number     String           @unique
+  customerId String
+  customer   Party            @relation(fields: [customerId], references: [id])
+  date       DateTime
+  status     OrderStatus      @default(DRAFT)
+  lines      SalesOrderLine[]
+  invoices   Invoice[]
+  createdAt  DateTime         @default(now())
+}
+
+model SalesOrderLine {
+  id                String     @id @default(cuid())
+  salesOrderId      String
+  salesOrder        SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  itemId            String
+  item               Item      @relation(fields: [itemId], references: [id])
+  quantity          Decimal    @db.Decimal(14, 2)
+  quantityFulfilled Decimal    @default(0) @db.Decimal(14, 2)
+  unitPrice         Decimal    @db.Decimal(14, 2)
+}
