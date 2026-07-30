@@ -4,6 +4,8 @@
 line:
   name: "Line-01"
   camera_fps: 30
+  autostart: true   # start the inspection loop at boot; if the camera/actuator isn't reachable yet,
+                     # this is logged and the dashboard still comes up so Start can be retried manually
   save_reject_images: true
   reject_image_dir: "./rejects"
   stats_log_interval_s: 60

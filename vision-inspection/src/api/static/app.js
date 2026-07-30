@@ -5,8 +5,19 @@ const el = (id) => document.getElementById(id);
 
 async function postJSON(path) {
   const res = await fetch(path, { method: "POST" });
-  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
-  return res.json();
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `${path} failed: ${res.status}`);
+  return body;
+}
+
+let actionErrorTimer = null;
+
+function showActionError(message) {
+  const box = el("action-error");
+  box.textContent = message;
+  box.classList.remove("hidden");
+  clearTimeout(actionErrorTimer);
+  actionErrorTimer = setTimeout(() => box.classList.add("hidden"), 6000);
 }
 
 function formatPercent(passed, total) {
@@ -84,9 +95,15 @@ async function refreshRejects() {
   }
 }
 
-el("start-btn").addEventListener("click", () => postJSON("/start").catch(console.error));
-el("stop-btn").addEventListener("click", () => postJSON("/stop").catch(console.error));
-el("test-reject-btn").addEventListener("click", () => postJSON("/reject/test").catch(console.error));
+el("start-btn").addEventListener("click", () =>
+  postJSON("/start").catch((err) => showActionError(err.message))
+);
+el("stop-btn").addEventListener("click", () =>
+  postJSON("/stop").catch((err) => showActionError(err.message))
+);
+el("test-reject-btn").addEventListener("click", () =>
+  postJSON("/reject/test").catch((err) => showActionError(err.message))
+);
 
 refreshStatus();
 refreshRejects();

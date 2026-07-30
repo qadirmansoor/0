@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, Generator
 
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..inspection.pipeline import InspectionPipeline
@@ -24,14 +24,20 @@ def create_api(pipeline: InspectionPipeline) -> FastAPI:
         return pipeline.stats()
 
     @app.post("/start")
-    def start() -> Dict[str, Any]:
-        pipeline.start()
-        return {"running": True}
+    def start() -> JSONResponse:
+        try:
+            pipeline.start()
+        except Exception as exc:
+            return JSONResponse(status_code=503, content={"running": False, "error": str(exc)})
+        return JSONResponse(content={"running": True})
 
     @app.post("/stop")
-    def stop() -> Dict[str, Any]:
-        pipeline.stop()
-        return {"running": False}
+    def stop() -> JSONResponse:
+        try:
+            pipeline.stop()
+        except Exception as exc:
+            return JSONResponse(status_code=500, content={"running": False, "error": str(exc)})
+        return JSONResponse(content={"running": False})
 
     @app.post("/reject/test")
     def test_reject() -> Dict[str, Any]:

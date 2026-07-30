@@ -63,10 +63,14 @@ class InspectionPipeline:
     def start(self) -> None:
         if self._running:
             return
-        self._camera.connect()
-        if self._printer is not None:
-            self._printer.connect()
+        # Reject queue/printer are independent of the camera (e.g. commissioning
+        # the reject actuator via the dashboard's "Test Reject" button should
+        # work even if the camera isn't connected yet), so bring them up first
+        # and only let a camera failure abort the capture loop itself.
         self._reject_queue.start()
+        if self._printer is not None and not self._printer.is_connected:
+            self._printer.connect()
+        self._camera.connect()
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()

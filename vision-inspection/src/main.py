@@ -20,7 +20,14 @@ def build_pipeline(config: dict):
     inspector = BasicCVInspector(config["inspection"])
 
     controller, reject_queue, reject_delay_ms = create_rejection_system(config["rejection"])
-    controller.connect()
+    try:
+        controller.connect()
+    except Exception:
+        logger.exception(
+            "Reject actuator (%s) not reachable at boot; the dashboard/API will still come up, "
+            "but scheduled rejects will fail (and be logged) until it's connected.",
+            controller.name,
+        )
 
     printer = None
     print_cfg = config.get("printer", {})
@@ -49,7 +56,16 @@ def main() -> None:
 
     config = load_config(args.config)
     pipeline, reject_controller = build_pipeline(config)
-    pipeline.start()
+
+    line_cfg = config.get("line", {})
+    if line_cfg.get("autostart", True):
+        try:
+            pipeline.start()
+        except Exception:
+            logger.exception(
+                "Pipeline failed to start (camera/printer/actuator not reachable yet?); "
+                "dashboard will still come up, retry with the Start button once hardware is connected."
+            )
 
     api_cfg = config.get("api", {})
     if api_cfg.get("enabled", True):
