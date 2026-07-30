@@ -1,0 +1,64 @@
+{
+  "name": "erp-desktop",
+  "version": "1.0.0",
+  "description": "ERP Accounts & Inventory desktop app",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "prepare-resources": "node scripts/prepare-resources.js",
+    "dist:win": "npm run prepare-resources && electron-builder --win --x64",
+    "dist:linux": "npm run prepare-resources && electron-builder --linux --x64",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "embedded-postgres": "^18.4.0-beta.17",
+    "pg": "^8.13.1",
+    "bcryptjs": "^3.0.2"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.erp.desktop",
+    "productName": "ERP",
+    "publish": null,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "node_modules/**"
+    ],
+    "extraResources": [
+      { "from": "resources/app", "to": "app" },
+      { "from": "resources/migrations.sql", "to": "migrations.sql" }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "files": [
+        "!node_modules/@embedded-postgres/linux-*/**",
+        "!node_modules/@embedded-postgres/darwin-*/**"
+      ]
+    },
+    "linux": {
+      "target": [{ "target": "dir", "arch": ["x64"] }],
+      "files": [
+        "!node_modules/@embedded-postgres/windows-*/**",
+        "!node_modules/@embedded-postgres/darwin-*/**"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "asarUnpack": [
+      "node_modules/@embedded-postgres/**",
+      "node_modules/embedded-postgres/**"
+    ]
+  }
+}

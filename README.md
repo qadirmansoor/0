@@ -45,6 +45,10 @@ The two modules are integrated with real double-entry bookkeeping: fulfilling a 
 
    Open [http://localhost:3000](http://localhost:3000) and sign in with the seeded admin account.
 
+## Windows desktop build
+
+`electron-app/` packages this into a self-contained Windows `.exe` (Electron + a bundled, embedded PostgreSQL — no separate DB or Node install needed on the target machine). See [`electron-app/README.md`](electron-app/README.md) for how to build it and what has/hasn't been verified.
+
 ## Notable design choices
 
 - **Prisma 7 driver adapters**: the schema has no `url` in `datasource`; connections go through `@prisma/adapter-pg` (see `src/lib/prisma.ts` and `prisma.config.ts`).
